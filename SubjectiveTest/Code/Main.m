@@ -84,9 +84,9 @@ SNR_overall = -5; % -5dB SNR
     duration,SNRs,noiseSPL,SNR_overall,SNR_mic,NFFT,...
     N,M,ref_mics);
 
-near_field_distance = 0.2;
+near_field_distances = [0.2,0.4,0.6,0.8,1];
 ear_location = 100;
-ILD_scale = DVF_ILD(near_field_distance,Fs,NFFT,ear_location,theta_DVF);
+ILD_scale = DVF_ILD(near_field_distances,Fs,NFFT,ear_location,theta_DVF);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                         %
@@ -101,6 +101,7 @@ CPSDM_sel = 'noise';      % The spatial filter uses the noise CPSDM.
 c = 0.1;%[0.1:0.2:0.9];                  % relaxation parameter for RJBLCMV_SCO method.
 ILD_max = 4; %in dB              % max error in ILD allowed.
 
+ild_low = near_field_distances(5);
 
 if(strcmp(CPSDM_sel,'noisy'))
     [x_hat_L,x_hat_R,Ws_L,Ws_R] =...
@@ -109,10 +110,10 @@ elseif(strcmp(CPSDM_sel,'noise'))
     % ideal VAD: used to compute the noise CPSDM.
     vad_thres = ( mean(abs(X(ref_mics(1),:))) )/15;
     vd_L = idealVAD(X(ref_mics(1),:),vad_thres,200);
-    [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y,X,A,B,N,NFFT,ref_mics,c,ILD_max,version,Fs,vd_L,ILD_scale);
+    [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y,X,A,B,N,NFFT,ref_mics,c,ILD_max,version,Fs,vd_L,ILD_scale(:,:,5));
 end
 
-%Nomalising the output to be used in the subjective Tests
+%Normalising the output to be used in the subjective Tests
 
 X_Pre_rms = [X(ref_mics(1),:)' X(ref_mics(2),:)']./(sum([X(ref_mics(1),:) X(ref_mics(2),:)].^2).^(0.5));
 audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_Unprocessed_Target.wav'],X_Pre_rms,Fs);
@@ -129,8 +130,9 @@ for met = 1:numbMethods
     audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(met) 'Target.wav'],X_rms(:,:,met),Fs);
 
     for r = 1:numbInter
+        
         Y_rms(:,:,r,met) = [Y_N_L(:,r,met) Y_N_R(:,r,met)]./(sum([Y_N_L(:,r,met)' Y_N_R(:,r,met)'].^2).^(0.5));
-        audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(met) '_r' num2str(r) '.wav'],Y_rms(:,:,r,met),Fs,'BitsPerSample',32);
+        audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(met) '_r' num2str(r) '_ILD' num2str(ild_low) '.wav'],Y_rms(:,:,r,met),Fs,'BitsPerSample',32);
     end
 end
 

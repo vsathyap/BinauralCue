@@ -101,9 +101,9 @@ for l=1:Nfr-1
             case 1
                 if(strcmp(version,'fixed'))
                     [x_hat_frame_L,x_hat_frame_R,w_L,w_R,ITF_s_in(:,l), ITF_int_in(:,:,l), ITF_s_out(:,l),...
-                        ITF_int_out(:,:,l),SNR_in(l), SNR_out(l)] = BMVDR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,w_L,w_R,Fs,[]);
+                        ITF_int_out(:,:,l),SNR_in(l), SNR_out(l)] = BMVDR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,w_L,w_R,Fs);
                 elseif(strcmp(version,'adaptive'))
-                    [x_hat_frame_L,x_hat_frame_R,w_L,w_R] = BMVDR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,[],[],[]);
+                    [x_hat_frame_L,x_hat_frame_R,w_L,w_R] = BMVDR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,[],[]);
                 end  
             case 2
                 if(strcmp(version,'fixed'))
@@ -1753,7 +1753,7 @@ function [ILD_scale] = DVF_ILD(distance_near_field,Fs,NFFT,ear_location,theta_U)
 % Returns dvf_r(f,thetas) frequency is defined by Fs and NFFT
 % Theta takes values 0 to 359. O being the frontal plane and increasing
 % with counter clockwise.
-% Calculate the DVF with respect to 1m distant source
+% Calculate the scaling factor DVF with respect to 1m distant source
 distance_far_field = 1;
 distance_between_ear = 0.0875; %m
 c = 343; %m/s speed of sound
