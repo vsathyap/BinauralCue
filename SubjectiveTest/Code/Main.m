@@ -22,15 +22,21 @@ switch Scenario
         Scene = 1;
     case 2
         theta_U = [90 -60 30];  % azimuths of interferers w.r.t array.
+        theta_DVF = [270 60 330];  % azimuths of interferers w.r.t array.
+
         %90-Right ear, -90-Left ear
         Scene = 1;
     case 3
         theta_U = [-75 -15 -60];  % azimuths of interferers w.r.t array.
         %90-Right ear, -90-Left ear
+        theta_DVF = [75 15 60];  % azimuths of interferers w.r.t array.
+
         Scene = 2;
     otherwise
         theta_U = [-90 60 -45];  % azimuths of interferers w.r.t array.
         %90-Right ear, -90-Left ear
+        theta_DVF = [90 330 45];  % azimuths of interferers w.r.t array.
+
         Scene = 1;
 end
  
@@ -101,7 +107,8 @@ CPSDM_sel = 'noise';      % The spatial filter uses the noise CPSDM.
 c = 0.1;%[0.1:0.2:0.9];                  % relaxation parameter for RJBLCMV_SCO method.
 ILD_max = 4; %in dB              % max error in ILD allowed.
 
-ild_low = near_field_distances(5);
+iter = 5;
+ild_low = near_field_distances(iter);
 
 if(strcmp(CPSDM_sel,'noisy'))
     [x_hat_L,x_hat_R,Ws_L,Ws_R] =...
@@ -110,7 +117,7 @@ elseif(strcmp(CPSDM_sel,'noise'))
     % ideal VAD: used to compute the noise CPSDM.
     vad_thres = ( mean(abs(X(ref_mics(1),:))) )/15;
     vd_L = idealVAD(X(ref_mics(1),:),vad_thres,200);
-    [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y,X,A,B,N,NFFT,ref_mics,c,ILD_max,version,Fs,vd_L,ILD_scale(:,:,5));
+    [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y,X,A,B,N,NFFT,ref_mics,c,ILD_max,version,Fs,vd_L,ILD_scale(:,:,iter));
 end
 
 %Normalising the output to be used in the subjective Tests
@@ -127,12 +134,12 @@ for met = 1:numbMethods
     [Y_N_L(:,:,met), Y_N_R(:,:,met)] = processedNoise(V,N,NFFT,squeeze(Ws_L(:,:,:,numbInter,met)),squeeze(Ws_R(:,:,:,numbInter,met)));
     [X_L(:,met),X_R(:,met)] = processedNoise(X,N,NFFT,squeeze(Ws_L(:,:,:,numbInter,met)),squeeze(Ws_R(:,:,:,numbInter,met)));
     X_rms(:,:,met) = [X_L(:,met) X_R(:,met)]./(sum([X_L(:,met)' X_R(:,met)'].^2).^(0.5));
-    audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(met) 'Target.wav'],X_rms(:,:,met),Fs);
+    audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(5) '_ILD' num2str(ild_low) 'Target.wav'],X_rms(:,:,met),Fs);
 
     for r = 1:numbInter
         
         Y_rms(:,:,r,met) = [Y_N_L(:,r,met) Y_N_R(:,r,met)]./(sum([Y_N_L(:,r,met)' Y_N_R(:,r,met)'].^2).^(0.5));
-        audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(met) '_r' num2str(r) '_ILD' num2str(ild_low) '.wav'],Y_rms(:,:,r,met),Fs,'BitsPerSample',32);
+        audiowrite(['/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/OutputAudioFiles/Sound_Sc' num2str(Scenario) '_m' num2str(5) '_r' num2str(r) '_ILD' num2str(ild_low) '.wav'],Y_rms(:,:,r,met),Fs,'BitsPerSample',32);
     end
 end
 
