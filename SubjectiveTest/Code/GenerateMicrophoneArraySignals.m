@@ -56,7 +56,7 @@ function [Y, X, V, A, B, fs] =...
 % Author: Vasudha Sathyapriyan
 %
 
-
+addpath(genpath('/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/InputAudioFiles'))
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Initialization %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [s,fs] = audioread(s_name);         % target source at original location.
 s = s(1:fs*duration);
@@ -79,7 +79,7 @@ end
 
 A = computeTrueATFs(NFFT,Lframe,h);
 
-X = ComputeMicrophoneSignals(s,Lsig,Lframe,h);
+X = ComputeMicrophoneSignals2(s,Lsig,Lframe,h);
 
 % N = zeros(M,Lsig);                  % microphones-self noise.
 % for mic_i=1:M
@@ -95,9 +95,14 @@ B = zeros(M,NFFT/2+1,r);            % interferers's ATFs w.r.t mic. array.
 for numbInter=1:r    
     [h] = signalPropagation(scene,M,thetas_U(numbInter),phis_U(numbInter),Lframe,fs);
             	
-    B(:,:,numbInter) = computeTrueATFs(NFFT,Lframe,h);
-    
-    V(:,:,numbInter) = ComputeMicrophoneSignals(U(:,numbInter),Lsig,Lframe,h);
+   for i=1:M
+        temp = conv(U(:,numbInter),h(i,:));
+        temp = temp(:);
+        V(i,:,numbInter) = temp(1:Lsig);
+         
+        tempfft = fft(h(i,:),NFFT);
+        B(i,:,numbInter) = tempfft(1:NFFT/2+1);
+    end
    
     E_N(:,:,numbInter) = E_N(:,:,max(1,numbInter-1)) + V(:,:,numbInter);
     
@@ -154,7 +159,7 @@ h = [h, zeros(M,N-n)];
 end
 
 
-function mic_sigs = ComputeMicrophoneSignals(sig,Lsig,N_ATF,h)
+function mic_sigs = ComputeMicrophoneSignals2(sig,Lsig,N_ATF,h)
 % It computes the microphone signals.
 %
 % Author: Andreas Koutrouvelis

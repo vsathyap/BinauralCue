@@ -1,4 +1,4 @@
-function [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y_signals,X,A,B,N,NFFT,ref_mics,c,k_max,version,Fs,VAD)
+function [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y_signals,X,A,B,N,NFFT,ref_mics,c,k_max,version,Fs,VAD,ILD_scale)
 
 [M, L_Y,numbInter] = size(Y_signals);
 
@@ -26,33 +26,33 @@ for r = numbInter
     end
     
     switch method
-        case {1,2,3,4,5,6,7}           
+        case {1,2,3,4,5,6,7,9}           
             [x_hat_L(:,r),x_hat_R(:,r),Ws_L(:,:,:,r),Ws_R(:,:,:,r),ITF_s_in, ITF_int_in, ITF_s_out,...
-                ITF_int_out,SNR_in,SNR_out] = computeMethod(A,B(:,:,1:r),c,r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,method);
+                ITF_int_out,SNR_in,SNR_out] = computeMethod(A,B(:,:,1:r),c,r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,method,ILD_scale);
 
         case 4
             for c_val = 1:length(c)
                 [x_hat_L(:,r),x_hat_R(:,r),Ws_L(:,:,:,r),Ws_R(:,:,:,r),ITF_s_in, ITF_int_in, ITF_s_out,...
-                    ITF_int_out,SNR_in,SNR_out] = computeMethod(A,B(:,:,1:r),c(c_val),r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,method);
+                    ITF_int_out,SNR_in,SNR_out] = computeMethod(A,B(:,:,1:r),c(c_val),r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,method,ILD_scale);
             end
         case 8
             for met = 1: numbMethods
                 [x_hat_L(:,r,met),x_hat_R(:,r,met),Ws_L(:,:,:,r,met),Ws_R(:,:,:,r,met),ITF_s_in, ITF_int_in, ITF_s_out,...
-                    ITF_int_out,SNR_in, SNR_out]= computeMethod(A,B(:,:,1:r),c,r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,met);         
+                    ITF_int_out,SNR_in, SNR_out]= computeMethod(A,B(:,:,1:r),c,r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,met,ILD_scale);         
             end
     end
 end
 end
 
 function [x_hat_L,x_hat_R,Ws_L,Ws_R,ITF_s_in, ITF_int_in, ITF_s_out,...
-    ITF_int_out,SNR_in, SNR_out] = computeMethod(A,B,c,r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,method)
+    ITF_int_out,SNR_in, SNR_out] = computeMethod(A,B,c,r,k_max,ref_mics,Fs,N,Nfr,Y,CPSDM,CPSDM_x,CPSDM_y,M,NFFT,version,method,ILD_scale)
 
 slice = 1:N;
 Win = sqrt(hanning(N));
 Shift = N/2;
 frequency = 0:Fs/NFFT:Fs/2;
 Bin_1500 = frequency >= 1500;
-
+Bin_800 = frequency < 800;
 Buffer_d_hat_L = zeros(Shift,1);
 Buffer_d_hat_R = zeros(Shift,1);
 tosave = 1:Shift;
@@ -146,6 +146,20 @@ for l=1:Nfr-1
                         ITF_int_out(:,:,l),SNR_in(l), SNR_out(l)] = RJBLCMV_SDCR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,c,w_L,w_R);
                 elseif(strcmp(version,'adaptive'))
                     [x_hat_frame_L,x_hat_frame_R,w_L,w_R] = RJBLCMV_SDCR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,c,[],[]);
+                end
+            case 9
+                if(strcmp(version,'fixed'))
+                    [x_hat_frame_L,x_hat_frame_R,w_L,w_R,ITF_s_in(:,l), ITF_int_in(:,:,l), ITF_s_out(:,l),...
+                        ITF_int_out(:,:,l),SNR_in(l), SNR_out(l)] = ILDJBLCMV(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,Bin_800,ref_mics,r,w_L,w_R,ILD_scale);
+                elseif(strcmp(version,'adaptive'))
+                    [x_hat_frame_L,x_hat_frame_R,w_L,w_R] = ILDJBLCMV(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,Bin_800,ref_mics,r,[],[],ILD_scale);
+                end
+            case 12
+                if(strcmp(version,'fixed'))
+                    [x_hat_frame_L,x_hat_frame_R,w_L,w_R,ITF_s_in(:,l), ITF_int_in(:,:,l), ITF_s_out(:,l),...
+                        ITF_int_out(:,:,l),SNR_in(l), SNR_out(l)] = ILDMVDR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,c,w_L,w_R,[]);
+                elseif(strcmp(version,'adaptive'))
+                    [x_hat_frame_L,x_hat_frame_R,w_L,w_R] = ILDMVDR(Y_frame_fft,A,B,N,CPSDM,CPSDM_x,ref_mics,c,[],[],[]);
                 end
             otherwise
                 x_hat_frame_L = zeros(N,1);
@@ -926,6 +940,153 @@ x_R = x_R(1:N);  % remove the zero padding
 x_R = x_R(:);
 
 end
+
+function [x_L,x_R,w_L,w_R, ITF_s_in, ITF_int_in, ITF_s_out, ITF_int_out, SNR_in, SNR_out] = ILDJBLCMV(y,a,b,N,P,Px,Bin_800,ref_mics,r,w_L_prev,w_R_prev,ILD_scale)
+% Purpose: This function implements the RJBLCMV_SDCR beamformer.
+%
+% Author: Andreas Koutrouvelis
+
+
+[M,NFFT_small] = size(y);
+NFFT = 2*NFFT_small-2;
+w_L = zeros(M,NFFT/2+1);
+w_R = zeros(M,NFFT/2+1);
+x_L_fft = zeros(NFFT,1);
+x_R_fft = zeros(NFFT,1);
+
+m = min(r,2*M-3);
+
+ITF_s_in = zeros(NFFT/2+1,1);
+ITF_int_in = zeros(NFFT/2+1,r);
+ITF_s_out = zeros(NFFT/2+1,1);
+ITF_int_out = zeros(NFFT/2+1,r);
+SNR_in_num = zeros(NFFT/2+1,1);
+SNR_in_den = zeros(NFFT/2+1,1);
+SNR_out_num = zeros(NFFT/2+1,1);
+SNR_out_den = zeros(NFFT/2+1,1);
+e_L = zeros(M,1);
+e_L(ref_mics(1)) = 1;
+e_R = zeros(M,1);
+e_R(ref_mics(2)) = 1;
+
+for freq_bin=1:NFFT/2+1
+    if(isempty(w_L_prev) || isempty(w_R_prev))
+        A = a(:,freq_bin);
+        P_n = P(:,:,freq_bin);
+        P_n = 0.5*(P_n + P_n');  % makes sure that the CPSDM is Hermitian
+        P_x = Px(:,:,freq_bin);
+        P_x = 0.5*(P_x + P_x');
+        
+        A_L = A(ref_mics(1));
+        A_R = A(ref_mics(2));
+        
+        Lambda_1 = [A zeros(size(A)); zeros(size(A)) A];
+        f_1 = [A_L A_R]';
+        
+        BigMatrix = zeros(2*M,2*M,m);
+        
+        BB = zeros(M,M,m);
+        LL = zeros(m,1);
+        RR = zeros(m,1);
+        
+        Lambda_2 = zeros(2*M,m);
+        for numbInter=1:m
+            B = b(:,freq_bin,numbInter);
+            B_L = B(ref_mics(1));
+            B_R = B(ref_mics(2));
+            
+            Lambda_2(:,numbInter) = [B.*B_R; -B.*B_L];
+            
+            LL(numbInter) = abs(B_R)^2;
+            RR(numbInter) = -abs(B_L)^2;
+
+            BB(:,:,numbInter) = b(:,freq_bin,numbInter)*b(:,freq_bin,numbInter)';
+        end
+        f_2 = zeros(m,1);
+        Lambda = [Lambda_1 Lambda_2];
+        f = [f_1; f_2];
+        
+        tilda_P_n = [P_n zeros(size(P_n)); zeros(size(P_n)) P_n];
+        if(Bin_800(freq_bin))
+            if(min(size(ILD_scale))==1)
+                c = ILD_scale;
+            elseif(size(ILD_scale,2)==m)
+                c = ILD_scale(freq_bin,numbInter);
+            else
+                disp('ILD scale must have the same size of the number of interferers')
+            end
+            for numbInter=1:m
+                BigMatrix(:,:,numbInter) = [BB(:,:,numbInter).*LL(numbInter) ,zeros(M);zeros(M), c*BB(:,:,numbInter).*RR(numbInter)];
+            end
+         
+            cvx_begin sdp;
+            cvx_solver sedumi
+            cvx_precision best;
+            cvx_quiet(true);
+            
+            variable w_hat(2*M,1) complex;
+            variable X(2*M,2*M) complex semidefinite;
+            minimize( real(trace(X*tilda_P_n)) )
+            subject to
+            for number_interferers=1:m
+                real(trace(X*BigMatrix(:,:,number_interferers))) == 0;
+            end
+            Lambda_1'*w_hat == f_1;
+            trace(X*(Lambda_1*Lambda_1')) - w_hat'*Lambda_1*f_1 - f_1'*Lambda_1'*w_hat + f_1'*f_1 == 0;
+            0.5*([X w_hat; w_hat' 1] + [X w_hat; w_hat' 1]') >= 0;
+            cvx_end
+        else
+            temp = tilda_P_n \ Lambda;
+            w_hat = temp * ( ((Lambda')*temp) \ f );
+        end
+        w_L(:,freq_bin) = w_hat(1:length(w_hat)/2);
+        w_R(:,freq_bin) = w_hat(length(w_hat)/2+1:end);
+        
+    else
+        w_L = w_L_prev;
+        w_R = w_R_prev;
+        P_n = P(:,:,freq_bin);
+        P_n = 0.5*(P_n + P_n');  % makes sure that the CPSDM is Hermitian
+        P_x = Px(:,:,freq_bin);
+        P_x = 0.5*(P_x + P_x');
+    end
+    
+    x_L_fft(freq_bin) = w_L(:,freq_bin)'*y(:,freq_bin);
+    x_R_fft(freq_bin) = w_R(:,freq_bin)'*y(:,freq_bin);
+    
+    %ITF at the input
+    ITF_s_in(freq_bin) = a(ref_mics(1),freq_bin)/a(ref_mics(2),freq_bin);
+    for numbInter=1:r
+        ITF_int_in(freq_bin,numbInter) = b(ref_mics(1),freq_bin,numbInter)/b(ref_mics(2),freq_bin,numbInter);
+    end
+    
+    %ITF at the output
+    ITF_s_out(freq_bin) = (w_L(:,freq_bin)'*a(:,freq_bin))/(w_R(:,freq_bin)'*a(:,freq_bin));
+    for numbInter=1:r
+        ITF_int_out(freq_bin,numbInter) = (w_L(:,freq_bin)'*b(:,freq_bin,numbInter))/(w_R(:,freq_bin)'*b(:,freq_bin,numbInter));
+    end
+    
+    SNR_in_num(freq_bin) = (e_L'*P_x*e_L + e_R'*P_x*e_R);
+    SNR_in_den(freq_bin) = (e_L'*P_n*e_L + e_R'*P_n*e_R);
+    SNR_out_num(freq_bin) = (w_L(:,freq_bin)'*P_x*w_L(:,freq_bin) + w_R(:,freq_bin)'*P_x*w_R(:,freq_bin));
+    SNR_out_den(freq_bin) = (w_L(:,freq_bin)'*P_n*w_L(:,freq_bin) + w_R(:,freq_bin)'*P_n*w_R(:,freq_bin));
+end
+SNR_in = 10*log10(abs(sum(SNR_in_num)/sum(SNR_in_den)));
+SNR_out = 10*log10(abs(sum(SNR_out_num)/sum(SNR_out_den)));
+
+x_L_fft(NFFT/2+2:end) = flipud(conj(x_L_fft(2:end/2)).').';
+x_R_fft(NFFT/2+2:end) = flipud(conj(x_R_fft(2:end/2)).').';
+
+x_L = real(ifft(x_L_fft,NFFT,'symmetric'));
+x_L = x_L(1:N);  % remove the zero padding
+x_L = x_L(:);
+
+x_R = real(ifft(x_R_fft,NFFT,'symmetric'));
+x_R = x_R(1:N);  % remove the zero padding
+x_R = x_R(:);
+
+end
+
 function [x_L,x_R,w_L,w_R, ITF_s_in, ITF_int_in, ITF_s_out, ITF_int_out, SNR_in, SNR_out] = RBBILD_SDCR(y,a,b,N,P,Px,Bin_1500,ref_mics,c,w_L_prev,w_R_prev)
 % Purpose: This function implements the RJBLCMV_SDCR beamformer.
 %
@@ -1586,3 +1747,119 @@ for freq_bin = 1: (NFFT/2 +1)
     end
 end
 end
+
+
+function [ILD_scale] = DVF_ILD(distance_near_field,Fs,NFFT,ear_location,theta_U)
+% Returns dvf_r(f,thetas) frequency is defined by Fs and NFFT
+% Theta takes values 0 to 359. O being the frontal plane and increasing
+% with counter clockwise.
+% Calculate the scaling factor DVF with respect to 1m distant source
+distance_far_field = 1;
+distance_between_ear = 0.0875; %m
+c = 343; %m/s speed of sound
+theta = 0:1:359;
+threshold = 10^-12;
+frequencies = 0:Fs/NFFT:Fs/2;
+dvf_ILD_r = zeros(length(frequencies),length(theta));
+dvf_ILD_l = zeros(length(frequencies),length(theta));
+ILD_scale = zeros(length(frequencies),length(theta_U));
+dvf_ILD = zeros(length(frequencies),length(theta));
+if(ear_location==100)
+    for a = 1:length(theta)
+        for f = 1:length(frequencies)
+            if(0<=theta(a)<80) %right hrtf first
+                dvf_ILD_l(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,(100-theta(a))*pi/180,frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,(100-theta(a))*pi/180,frequencies(f),c,threshold)).^2;
+                dvf_ILD_r(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(100+theta(a)),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,(100+theta(a))*pi/180,frequencies(f),c,threshold)).^2;
+            elseif(80<=theta(a)<100)
+                dvf_ILD_l(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(100-theta(a)),frequencies(f),c,threshold)).^2\...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(100-theta(a)),frequencies(f),c,threshold)).^2;
+                dvf_ILD_r(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(260-theta(a)),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(260-theta(a)),frequencies(f),c,threshold)).^2;
+            elseif(100<=theta(a)<260)
+                dvf_ILD_l(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(theta(a)-100),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(theta(a)-100),frequencies(f),c,threshold)).^2;
+                dvf_ILD_r(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(260-theta(a)),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(260-theta(a)),frequencies(f),c,threshold)).^2;
+            elseif(260<=theta(a)<280)
+                dvf_ILD_l(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(theta(a)-100),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(theta(a)-100),frequencies(f),c,threshold)).^2;
+                dvf_ILD_r(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(theta(a)-260),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(theta(a)-260),frequencies(f),c,threshold)).^2;
+            elseif(280<=theta(a)<360)
+                dvf_ILD_l(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(460-theta(a)),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(460-theta(a)),frequencies(f),c,threshold)).^2;
+                dvf_ILD_r(f,a)=...
+                    abs(hrtfsphere(distance_between_ear,distance_near_field,deg2rad(theta(a)-260),frequencies(f),c,threshold)).^2/...
+                    abs(hrtfsphere(distance_between_ear,distance_far_field,deg2rad(theta(a)-260),frequencies(f),c,threshold)).^2;
+            end
+        end
+    end
+else
+    for a = 1:length(theta)
+        for f = 1:length(frequencies)
+            dvf_ILD_r(f,a) = abs(hrtfsphere(distance_between_ear,distance,deg2rad(90+theta(a)),frequencies(f),c,threshold)).^2;
+            dvf_ILD_l(f,a) = abs(hrtfsphere(distance_between_ear,distance,deg2rad(90-theta(a)),frequencies(f),c,threshold)).^2;
+        end
+    end
+    
+end
+dvf_ILD = dvf_ILD_l./dvf_ILD_r;
+dvf_ILD(1,:)=dvf_ILD(2,:); % First is a DC value which returns NaN. It
+%should not be used for enhancement.
+for i = 1:length(theta_U)
+    ILD_scale(:,i)=dvf_ILD(:,theta_U(i));
+end
+end
+%a radius of sphere (m)
+%r distance from the center of the sphere to the source (m)
+%c ambient speed of sound (m/s)
+%theta angle of incidence
+%f frequency
+%threshold user defined for spherical Henkel function iterations
+
+function H = hrtfsphere(a,r,theta,f,c,threshold)
+x=cos(theta);
+mu = (2 * pi * f * a) / c;
+rho = r / a;
+i = sqrt(-1);
+zr = 1 / (i * mu * rho); 
+za = 1 / (i * mu);
+Qr2 = zr;
+Qr1 = zr * (1 - zr);
+Qa2 =za;
+Qa1 =za * (1 - za);
+P2 =1;
+P1 =x;
+sum = 0;
+term = zr / (za * (za - 1));
+sum  = sum + term;
+term =(3 * x * zr * (zr - 1) ) / (za * (2 * za^2 - 2 * za + 1) ); 
+sum = sum + term;
+oldratio = 1; 
+newratio = abs(term)/abs(sum);
+m =2;
+while ((oldratio > threshold) || (newratio > threshold))
+    Qr = - (2 * m - 1) * zr * Qr1 + Qr2;
+    Qa =- (2 * m - 1) * za * Qa1 + Qa2;
+    P = ( (2 * m - 1) * x * P1 - (m - 1) * P2) / m;
+    term = ( (2 * m + 1) * P * Qr) / ( (m + 1) * za * Qa - Qa1);
+    sum = sum + term;
+    m = m + 1;
+    Qr2 = Qr1;
+    Qr1 = Qr; Qa2 = Qa1; Qa1 = Qa; P2 = P1; P1 = P; oldratio= newratio;
+    newratio = abs(term)/abs(sum);
+end
+H = (rho * exp(- i * mu) * sum) / (i * mu); 
+end
+

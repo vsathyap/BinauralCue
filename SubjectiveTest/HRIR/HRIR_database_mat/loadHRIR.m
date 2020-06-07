@@ -7,7 +7,7 @@ function hrir = loadHRIR(environment,varargin)
 % position
 %
 % Anechoic HRIRs:
-%   loadHRIR('Anechoic', distance, elevation angle in °, azimuth angle in °
+%   loadHRIR('Anechoic', distance, elevation angle in ï¿½, azimuth angle in ï¿½
 %                                                              [, HRIRset])
 %
 %   with
@@ -16,7 +16,7 @@ function hrir = loadHRIR(environment,varargin)
 %       azimuth   = {-180 : 5 : 180}
 %
 % Office I HRIRs:
-%   loadHRIR('Office_I', azimuth angle in ° [, HRIRset])
+%   loadHRIR('Office_I', azimuth angle in ï¿½ [, HRIRset])
 %
 %   with
 %       azimuth   = {-90 ; 5 : 90}
@@ -57,7 +57,7 @@ function hrir = loadHRIR(environment,varargin)
 
 
 % Change this path to an absolute path if you need.
-baseDirectory = 'C:/Users/user/Documents/MATLAB/Thesis/Dataset/HRIR_database_mat/hrir';
+baseDirectory = '/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/HRIR/HRIR_database_mat/hrir';
 
 
 
