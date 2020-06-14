@@ -56,7 +56,7 @@ function [Y, X, V, A, B, fs] =...
 % Author: Vasudha Sathyapriyan
 %
 
-addpath(genpath('/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/InputAudioFiles'))
+%addpath(genpath('/Users/localadmin/Documents/GitHub/BinauralCue/SubjectiveTest/InputAudioFiles'))
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Initialization %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [s,fs] = audioread(s_name);         % target source at original location.
 s = s(1:fs*duration);
@@ -81,11 +81,12 @@ A = computeTrueATFs(NFFT,Lframe,h);
 
 X = ComputeMicrophoneSignals2(s,Lsig,Lframe,h);
 
-% N = zeros(M,Lsig);                  % microphones-self noise.
-% for mic_i=1:M
-%     N(mic_i,:) = randn(Lsig,1);
-% end 
-% N = fixSNR(X,N,SNR_mic,ref_mics,Lframe);
+N = zeros(M,Lsig);                  % microphones-self noise.
+for mic_i=1:M
+    N(mic_i,:) = randn(Lsig,1);
+end 
+% scaling the mic noise w.r.t target
+N = fixSNR(X,N,SNR_mic,ref_mics,Lframe);
 Y = zeros(size(X));
 
 %%%%%%%%%%%%%%%%%%%%%% Acquisition of Interferers %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -106,10 +107,8 @@ for numbInter=1:r
    
     E_N(:,:,numbInter) = E_N(:,:,max(1,numbInter-1)) + V(:,:,numbInter);
     
-%     E_N(:,:,numbInter) = fixSNR(X,squeeze(E_N(:,:,numbInter)),SNRs(numbInter),ref_mics,Lframe);
-%     E_N(:,:,numbInter) = fixNoiseSPL(squeeze(E_N(:,:,numbInter)),SPL,ref_mics,Lframe);
-       
-    Y(:,:,numbInter) = fixSNR(X,squeeze(E_N(:,:,numbInter)),SNR_overall,ref_mics,Lframe) + E_N(:,:,numbInter);
+  %fixing the SNR by scaling X w.r.t noise, then adding the interfering signals and microphone noise 
+    Y(:,:,numbInter) = fixSNR_overall(X,(squeeze(E_N(:,:,numbInter))+N),SNR_overall,ref_mics,Lframe) + E_N(:,:,numbInter) + N; 
 end
 
 end
@@ -141,7 +140,7 @@ if(scene == 1)
     IR = resampling(temp.data,Fs,IR_Fs);
     h = [IR(1:shortIR,3)';IR(1:shortIR,5)';IR(1:shortIR,6)';IR(1:shortIR,4)'];
 elseif(scene == 2)
-    shortIR = 300*1e-03*Fs; %T_60 is 300ms
+    shortIR = 10*1e-03*Fs; %Early rtf is 10ms
     temp = loadHRIR('Office_I',theta,'bte');
     IR_Fs = temp.fs;
     IR = resampling(temp.data,Fs,IR_Fs);
@@ -154,8 +153,6 @@ else
     h = [IR(1:shortIR,3)';IR(1:shortIR,5)';IR(1:shortIR,6)';IR(1:shortIR,4)'];
 end
 
-[~, n] = size(h);
-h = [h, zeros(M,N-n)];
 end
 
 
@@ -168,7 +165,7 @@ function mic_sigs = ComputeMicrophoneSignals2(sig,Lsig,N_ATF,h)
 mic_sigs = zeros(M,Lsig);
     
 for mic_i=1:M
-    temp_sig = conv(sig,h(mic_i,1:N_ATF));
+    temp_sig = conv(sig,h(mic_i,:));
     temp_sig = temp_sig(1:Lsig);
     mic_sigs(mic_i,:) = temp_sig(:);
 end
@@ -176,7 +173,7 @@ end
 end
 
 
-function speech_scaled = fixSNR(target,noise,SNR,ref_mics,Lframe)
+function speech_scaled = fixSNR_overall(target,noise,SNR,ref_mics,Lframe)
 % This function scales the noise shuch that the SNR at
 % the left reference microphone is equal to the given SNR value.
 %
@@ -206,6 +203,38 @@ var_target = varNoise * (10^(SNR/10)) ;
 scaling_factor = sqrt(var_target)/sqrt(var(target_tempL));
 
 speech_scaled = scaling_factor.*target_new;
+
+end
+
+function noise_scaled = fixSNR(target,noise,SNR,ref_mics,Lframe)
+% This function scales the noise shuch that the SNR at
+% the left reference microphone is equal to the given SNR value.
+%
+% Author: Andreas Koutrouvelis
+[M,N1] = size(target);
+[M,N2] = size(noise);
+N = min([N1 N2]);
+
+target_new = target(:,1:N);
+noise_new = noise(:,1:N);
+
+vad_thres = ( mean(abs(target_new(ref_mics(1),:))) )/15;
+vd_L_target = idealVAD(target_new(ref_mics(1),:),vad_thres,Lframe);
+target_tempL = target_new(ref_mics(1),vd_L_target == 1);
+target_tempL = target_tempL(:);
+
+vad_thres = ( mean(abs(noise_new(ref_mics(1),:))) )/15;
+vd_L_noise = idealVAD(noise_new(ref_mics(1),:),vad_thres,Lframe);
+noise_tempL = noise_new(ref_mics(1),vd_L_noise == 1);
+noise_tempL = noise_tempL(:);
+
+varTarget = var(target_tempL);
+
+var_noise = varTarget / (10^(SNR/10)) ;
+
+scaling_factor = sqrt(var_noise)/sqrt(var(noise_tempL));
+
+noise_scaled = scaling_factor.*noise_new;
 
 end
 
@@ -244,7 +273,7 @@ h = h(:,i_offset:end);
 ATFs = zeros(M,NFFT/2+1);
 
 for mic_i=1:M
-    temp = fft(h(mic_i,1:N_ATF),NFFT);
+    temp = fft(h(mic_i,:),NFFT);
     ATFs(mic_i,:) = temp(1:NFFT/2+1);
 end
 
