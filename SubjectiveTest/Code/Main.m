@@ -27,7 +27,7 @@ switch Scenario
         %90-Right ear, -90-Left ear
         Scene = 1;
     case 3
-        theta_U = [-75 -15 -60];  % azimuths of interferers w.r.t array.
+        theta_U = [-75 -15 45];  % azimuths of interferers w.r.t array.
         %90-Right ear, -90-Left ear
         theta_DVF = [75 15 60];  % azimuths of interferers w.r.t array.
 
@@ -57,14 +57,8 @@ SNR_mic = 50;                        % mic. self noise input SNR (dB).
 M = 4;                               % number of mics (even number).
 ref_mics = [1 M];                    % reference microphones' indices.
 
-if (Scene == 1)
-    N = 5e-02*16000;                     % time-frame length in samples.
-elseif (Scene == 2)
-    N = 300*1e-03*16000;                     % time-frame length in samples.
-else
-    N = 5e-02*16000;                     % time-frame length in samples.
-end
-NFFT = 2^nextpow2(N);                % FFT length.
+N = 10*1e-03*16000; %10 ms % time-frame length in samples.
+NFFT =1024;               % FFT length.
 
 numbMethods = 1;
 %Methods:
@@ -73,7 +67,7 @@ numbMethods = 1;
 % 3.ILD
 % 4.ILD_relaxed
 % 9.Low Enhanced
-method = 9; % To run all the 4 methods, to run individually-- change the method to the corresponding number.
+method = 1; % To run all the 4 methods, to run individually-- change the method to the corresponding number.
 if(method == 8)
     numbMethods = 4;
 end
@@ -116,7 +110,7 @@ if(strcmp(CPSDM_sel,'noisy'))
 elseif(strcmp(CPSDM_sel,'noise'))
     % ideal VAD: used to compute the noise CPSDM.
     vad_thres = ( mean(abs(X(ref_mics(1),:))) )/15;
-    vd_L = idealVAD(X(ref_mics(1),:),vad_thres,200);
+    vd_L = idealVAD(X(ref_mics(1),:),vad_thres,N);
     [x_hat_L,x_hat_R,Ws_L,Ws_R] = BinauralProcessing(method,numbMethods,Y,X,A,B,N,NFFT,ref_mics,c,ILD_max,version,Fs,vd_L,ILD_scale(:,:,iter));
 end
 
