@@ -1,0 +1,24 @@
+Please follow this naming convention for the signals:
+For Scene- Sc 2,3
+For Method:
+Unprocessed - for unprocessed signal
+Method 1 is BMVDR
+Method 2 is JBLCMV
+Mathod 3 is P_ILD
+Method 4 is R_ILD ( c1, c3 )
+Method 5 is scaledILD (ILD0.2,ILd0,6,ILD1)
+ so m<your method number>
+
+Signals:
+
+Target
+r1- speech
+r2- music
+r3 - Hf tone
+r4 - LF signal
+
+As an example:
+Sound_Sc1_m5_r4_ILD0.6 - is Scene1, scaledILD method with paramter 0.6, for LF signal
+
+Sound_Sc2_m4_c1Target - is Scene 2, R_ILD method, parameter is 0.3, for Target signal.
+
